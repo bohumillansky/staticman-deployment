@@ -11,6 +11,7 @@ else
 fi
 
 STACK_NAME=${STACK_NAME:-staticman}
+TIMESTAMP=$(date +%s)
 
 echo "🔍 Checking if stack exists..."
 if docker stack ls --format "table {{.Name}}" | grep -q "^${STACK_NAME}$"; then
@@ -23,26 +24,29 @@ fi
 
 echo "🏗️  Building Staticman image..."
 # Use timestamp to force rebuild and detect image changes
-IMAGE_TAG="staticman:$(date +%s)"
+IMAGE_TAG="staticman:$TIMESTAMP"
 docker build -t $IMAGE_TAG .
 docker tag $IMAGE_TAG staticman:latest
 
 echo "⚙️  Updating configurations..."
 
-# Handle nginx config changes
-if docker config inspect nginx_config >/dev/null 2>&1; then
-    echo "📝 Updating existing nginx config..."
-    docker config rm nginx_config
-else
-    echo "📝 Creating new nginx config..."
-fi
-docker config create nginx_config configs/nginx.conf
+# Handle nginx config changes with versioning (fixes the "in use" error)
+CONFIG_NAME="nginx_config_$TIMESTAMP"
+echo "📝 Creating new nginx config: $CONFIG_NAME"
+docker config create $CONFIG_NAME configs/nginx.conf
+
+echo "📝 Updating docker-compose file to use new config..."
+# Create temporary compose file with new config name
+sed "s/nginx_config/$CONFIG_NAME/g" docker-compose.swarm.yml > docker-compose.swarm.tmp.yml
 
 echo "🚀 Deploying Staticman stack: $STACK_NAME"
-echo "📄 Using compose file: docker-compose.swarm.yml"
+echo "📄 Using compose file: docker-compose.swarm.tmp.yml"
 
 # Deploy the stack (this handles ALL changes in docker-compose.swarm.yml)
-docker stack deploy -c docker-compose.swarm.yml $STACK_NAME
+docker stack deploy -c docker-compose.swarm.tmp.yml $STACK_NAME
+
+# Clean up temporary file
+rm docker-compose.swarm.tmp.yml
 
 if [ "$UPDATE_MODE" = "update" ]; then
     echo "🔄 Docker Swarm will automatically detect and apply changes to:"
@@ -132,4 +136,14 @@ if [ -n "$OLD_IMAGES" ]; then
     echo "✅ Cleanup complete"
 else
     echo "ℹ️  No old images to clean"
+fi
+
+# Clean up old configs (keep last 3)
+echo "🧹 Cleaning up old nginx configs..."
+OLD_CONFIGS=$(docker config ls --format "table {{.Name}}" | grep "nginx_config_" | sort | head -n -3 || true)
+if [ -n "$OLD_CONFIGS" ]; then
+    echo "$OLD_CONFIGS" | xargs docker config rm 2>/dev/null || echo "Some configs may still be in use"
+    echo "✅ Config cleanup complete"
+else
+    echo "ℹ️  No old configs to clean"
 fi
