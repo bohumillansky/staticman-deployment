@@ -3,7 +3,7 @@ FROM node:22-alpine
 # Set working directory
 WORKDIR /app
 
-# Install git and wget (needed to clone Staticman and for health checks)
+# Install git and wget
 RUN apk add --no-cache git wget
 
 # Clone Staticman repository
@@ -15,6 +15,10 @@ RUN npm install --production
 # Create config directory
 RUN mkdir -p config
 
+# Copy entrypoint script
+COPY configs/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=8080
@@ -23,7 +27,7 @@ ENV PORT=8080
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S staticman -u 1001
 
-# Change ownership of the app directory
+# Change ownership
 RUN chown -R staticman:nodejs /app
 
 # Switch to non-root user
@@ -36,5 +40,6 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD wget --quiet --tries=1 --spider http://localhost:8080/ || exit 1
 
-# Start the application
+# Use custom entrypoint
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["npm", "start"]
