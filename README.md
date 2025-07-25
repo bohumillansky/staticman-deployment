@@ -395,6 +395,19 @@ crontab -e
 0 2 * * * docker service scale staticman_certbot=1 && sleep 30 && docker service scale staticman_certbot=0
 ```
 
+## Configuration Files
+
+- `configs/production.json.template` - Template for Staticman configuration
+- `configs/production.json` - Generated configuration (not in git, created by setup.sh)
+
+## Deployment Process
+
+1. Generate RSA keys: `./scripts/generate-keys.sh`
+2. Add public key to your Hugo site repository as Deploy Key
+3. Configure environment: `cp .env.example .env` and edit
+4. Setup: `./scripts/setup.sh`
+5. Deploy: `./scripts/deploy.sh`
+
 ## Contributing
 
 1. Fork this repository

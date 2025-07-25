@@ -8,6 +8,8 @@ services:
       - PORT=8080
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - RSA_PRIVATE_KEY=${RSA_PRIVATE_KEY}
+    volumes:
+      - ./configs/production.json:/app/config/production.json:ro
     restart: unless-stopped
     networks:
       - staticman-network
