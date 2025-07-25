@@ -37,14 +37,40 @@ EOF
 echo "🛑 Stopping existing services..."
 docker-compose down 2>/dev/null || true
 
-echo "🏗️  Building Staticman image..."
-docker-compose build --no-cache staticman
+# Smart image building
+echo "🏗️  Checking if image rebuild is needed..."
+IMAGE_EXISTS=$(docker images -q staticman-deployment-staticman 2>/dev/null)
+DOCKERFILE_CHANGED=false
+
+if [ -n "$IMAGE_EXISTS" ]; then
+    # Check if Dockerfile was modified recently (last 5 minutes)
+    if [ -f Dockerfile ]; then
+        DOCKERFILE_AGE=$(find Dockerfile -mmin -5 2>/dev/null | wc -l)
+        if [ "$DOCKERFILE_AGE" -gt 0 ]; then
+            DOCKERFILE_CHANGED=true
+        fi
+    fi
+fi
+
+# Check for --rebuild flag
+FORCE_REBUILD=false
+if [ "$1" = "--rebuild" ] || [ "$1" = "-r" ]; then
+    FORCE_REBUILD=true
+    echo "🔄 Force rebuild requested"
+fi
+
+if [ -z "$IMAGE_EXISTS" ] || [ "$DOCKERFILE_CHANGED" = true ] || [ "$FORCE_REBUILD" = true ]; then
+    echo "🏗️  Building Staticman image..."
+    docker-compose build staticman
+else
+    echo "✅ Using existing Staticman image (use --rebuild to force rebuild)"
+fi
 
 echo "🚀 Starting services..."
 docker-compose up -d
 
 echo "⏳ Waiting for services to start..."
-sleep 15
+sleep 10
 
 # Monitor startup
 for i in {1..12}; do
@@ -103,6 +129,10 @@ fi
 echo ""
 echo "🎉 Deployment complete!"
 echo ""
+echo "💡 Usage:"
+echo "  ./scripts/deploy.sh           # Deploy with existing image"
+echo "  ./scripts/deploy.sh --rebuild  # Force rebuild image"
+echo ""
 echo "📊 Monitor services:"
 echo "  docker-compose ps"
 echo "  docker-compose logs -f staticman"
@@ -113,8 +143,10 @@ echo "  docker-compose restart staticman  # Restart service"
 echo "  docker-compose down              # Stop all services"
 echo "  docker-compose up -d             # Start all services"
 
-# Clean up old images
-echo ""
-echo "🧹 Cleaning up old images..."
-docker image prune -f >/dev/null 2>&1
-echo "✅ Cleanup complete"
+# Clean up old images only if we rebuilt
+if [ "$FORCE_REBUILD" = true ] || [ "$DOCKERFILE_CHANGED" = true ]; then
+    echo ""
+    echo "🧹 Cleaning up old images..."
+    docker image prune -f >/dev/null 2>&1
+    echo "✅ Cleanup complete"
+fi
