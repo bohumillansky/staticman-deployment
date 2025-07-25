@@ -1,20 +1,23 @@
-FROM node:22-alpine
+FROM node:18-alpine
 
 # Set working directory
 WORKDIR /app
 
-# Install git and wget
-RUN apk add --no-cache git wget
+# Install git, wget, and build tools
+RUN apk add --no-cache git wget python3 make g++
 
 # Clone specific version of Staticman
 RUN git clone https://github.com/eduardoboucas/staticman.git . && \
     git checkout v1.7.1
 
-# Install dependencies
-RUN npm install --production
+# Install Lerna globally
+RUN npm install -g lerna@6
 
-# Create config directory
-RUN mkdir -p config
+# Install dependencies
+RUN npm install
+
+# Bootstrap the monorepo with Lerna
+RUN lerna bootstrap
 
 # Set environment variables
 ENV NODE_ENV=production
