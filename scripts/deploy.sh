@@ -23,26 +23,35 @@ else
 fi
 
 echo "🏗️  Building Staticman image..."
-# Use timestamp to force rebuild and detect image changes
+# Build with both timestamp and latest tags
 IMAGE_TAG="staticman:$TIMESTAMP"
 docker build -t $IMAGE_TAG .
 docker tag $IMAGE_TAG staticman:latest
 
 echo "⚙️  Updating configurations..."
 
-# Handle nginx config changes with versioning (fixes the "in use" error)
+# Handle nginx config changes with versioning
 CONFIG_NAME="nginx_config_$TIMESTAMP"
 echo "📝 Creating new nginx config: $CONFIG_NAME"
 docker config create $CONFIG_NAME configs/nginx.conf
 
-echo "📝 Updating docker-compose file to use new config..."
-# Create temporary compose file with new config name
-sed "s/nginx_config/$CONFIG_NAME/g" docker-compose.swarm.yml > docker-compose.swarm.tmp.yml
+echo "📝 Preparing deployment configuration..."
+# Create temporary compose file with new config name and ensure image is specified
+sed -e "s/nginx_config/$CONFIG_NAME/g" \
+    -e "s/image: staticman:latest/image: staticman:latest/g" \
+    docker-compose.swarm.yml > docker-compose.swarm.tmp.yml
+
+# Verify the image exists
+if ! docker image inspect staticman:latest >/dev/null 2>&1; then
+    echo "❌ Error: staticman:latest image not found!"
+    echo "🔧 Building image again..."
+    docker build -t staticman:latest .
+fi
 
 echo "🚀 Deploying Staticman stack: $STACK_NAME"
 echo "📄 Using compose file: docker-compose.swarm.tmp.yml"
 
-# Deploy the stack (this handles ALL changes in docker-compose.swarm.yml)
+# Deploy the stack
 docker stack deploy -c docker-compose.swarm.tmp.yml $STACK_NAME
 
 # Clean up temporary file
@@ -62,7 +71,7 @@ fi
 echo "⏳ Monitoring deployment progress..."
 
 # Wait for deployment to complete
-for i in {1..24}; do  # Increased timeout for complex updates
+for i in {1..24}; do
     sleep 5
     echo "🔍 Checking deployment status ($i/24)..."
     

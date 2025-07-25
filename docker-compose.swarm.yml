@@ -2,8 +2,8 @@ version: '3.8'
 
 services:
   staticman:
-    build: .  # Build from local Dockerfile
-    # OR use: image: staticman:local  # if you pre-build the image
+    image: staticman:latest  # This line must be present
+    # Remove any "build: ." line
     environment:
       - NODE_ENV=production
       - PORT=8080
