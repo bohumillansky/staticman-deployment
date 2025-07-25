@@ -22,28 +22,15 @@ echo "  App ID: $GITHUB_APP_ID"
 echo "  Private Key: ${GITHUB_PRIVATE_KEY:0:30}... (${#GITHUB_PRIVATE_KEY} chars)"
 echo "  Webhook Secret: configured"
 
-# Create/update Staticman config
-echo "📝 Creating Staticman production config..."
-
-cat > configs/production.json << EOF
-{
-  "githubAppID": "${GITHUB_APP_ID}",
-  "githubPrivateKey": "${GITHUB_PRIVATE_KEY}",
-  "port": 8080,
-  "webhookSecret": "${WEBHOOK_SECRET}"
-}
-EOF
-
 echo "🛑 Stopping existing services..."
 docker-compose down 2>/dev/null || true
 
-# Smart image building
+# Smart image building (keeping your optimization)
 echo "🏗️  Checking if image rebuild is needed..."
 IMAGE_EXISTS=$(docker images -q staticman-deployment-staticman 2>/dev/null)
 DOCKERFILE_CHANGED=false
 
 if [ -n "$IMAGE_EXISTS" ]; then
-    # Check if Dockerfile was modified recently (last 5 minutes)
     if [ -f Dockerfile ]; then
         DOCKERFILE_AGE=$(find Dockerfile -mmin -5 2>/dev/null | wc -l)
         if [ "$DOCKERFILE_AGE" -gt 0 ]; then
@@ -52,7 +39,6 @@ if [ -n "$IMAGE_EXISTS" ]; then
     fi
 fi
 
-# Check for --rebuild flag
 FORCE_REBUILD=false
 if [ "$1" = "--rebuild" ] || [ "$1" = "-r" ]; then
     FORCE_REBUILD=true
@@ -76,7 +62,6 @@ sleep 10
 for i in {1..12}; do
     echo "🔍 Checking service status ($i/12)..."
     
-    # Check container status
     STATICMAN_STATUS=$(docker-compose ps --services --filter "status=running" | grep staticman || echo "")
     NGINX_STATUS=$(docker-compose ps --services --filter "status=running" | grep nginx || echo "")
     
@@ -110,14 +95,12 @@ if [ "$EXTERNAL_IP" != "Unable to determine external IP" ]; then
     echo "🔗 Staticman API: http://$EXTERNAL_IP/v2/entry/bohumillansky/zivotvusa.cz/main/comments"
     echo "🔗 Connect endpoint: http://$EXTERNAL_IP/v2/connect/bohumillansky/zivotvusa.cz"
     
-    # Quick health check
     if curl -s --max-time 5 "http://localhost/health" >/dev/null 2>&1; then
         echo "✅ Health check passed!"
     else
         echo "⚠️  Health check failed - service may still be starting"
     fi
     
-    # Test Staticman API
     API_TEST=$(curl -s "http://localhost/" 2>/dev/null || echo "failed")
     if echo "$API_TEST" | grep -q "Staticman"; then
         echo "✅ Staticman API is responding!"
@@ -143,7 +126,6 @@ echo "  docker-compose restart staticman  # Restart service"
 echo "  docker-compose down              # Stop all services"
 echo "  docker-compose up -d             # Start all services"
 
-# Clean up old images only if we rebuilt
 if [ "$FORCE_REBUILD" = true ] || [ "$DOCKERFILE_CHANGED" = true ]; then
     echo ""
     echo "🧹 Cleaning up old images..."

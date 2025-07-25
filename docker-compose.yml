@@ -1,15 +1,15 @@
-version: '3.8'
-
 services:
   staticman:
     build: .
     environment:
       - NODE_ENV=production
       - PORT=8080
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
-      - RSA_PRIVATE_KEY=${RSA_PRIVATE_KEY}
-    volumes:
-      - ./configs/production.json:/app/config/production.json:ro
+      - GITHUB_APP_ID=${GITHUB_APP_ID}
+      - GITHUB_PRIVATE_KEY=${GITHUB_PRIVATE_KEY}
+      - GITHUB_WEBHOOK_SECRET=${WEBHOOK_SECRET}
+    # Remove the volume mount:
+    # volumes:
+    #   - ./configs/production.json:/app/config/production.json:ro
     restart: unless-stopped
     networks:
       - staticman-network
