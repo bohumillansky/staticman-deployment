@@ -6,8 +6,9 @@ WORKDIR /app
 # Install git and wget
 RUN apk add --no-cache git wget
 
-# Clone Staticman repository
-RUN git clone https://github.com/eduardoboucas/staticman.git .
+# Clone specific version of Staticman
+RUN git clone https://github.com/eduardoboucas/staticman.git . && \
+    git checkout v1.7.1
 
 # Install dependencies
 RUN npm install --production
