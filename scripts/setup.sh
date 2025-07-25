@@ -18,13 +18,42 @@ source .env
 # Validate required environment variables
 if [ -z "$GITHUB_TOKEN" ] || [ -z "$RSA_PRIVATE_KEY" ]; then
     echo "❌ Error: Missing required environment variables"
-    echo "Please ensure GITHUB_TOKEN and RSA_PRIVATE_KEY are set in .env"
+    echo "GITHUB_TOKEN length: ${#GITHUB_TOKEN}"
+    echo "RSA_PRIVATE_KEY length: ${#RSA_PRIVATE_KEY}"
+    echo "Please check your .env file"
     exit 1
 fi
 
-# Create Staticman production config from template
+echo "✅ Environment variables loaded:"
+echo "  GITHUB_TOKEN: ${GITHUB_TOKEN:0:10}... (${#GITHUB_TOKEN} chars)"
+echo "  RSA_PRIVATE_KEY: ${RSA_PRIVATE_KEY:0:20}... (${#RSA_PRIVATE_KEY} chars)"
+
+# Create Staticman production config
 echo "📝 Creating Staticman production config..."
-envsubst < configs/production.json.template > configs/production.json
+
+# Use cat with heredoc instead of envsubst (more reliable)
+cat > configs/production.json << EOF
+{
+  "githubToken": "${GITHUB_TOKEN}",
+  "rsaPrivateKey": "${RSA_PRIVATE_KEY}",
+  "port": 8080
+}
+EOF
+
+# Verify the config was created correctly
+if [ -f configs/production.json ]; then
+    CONFIG_SIZE=$(wc -c < configs/production.json)
+    if [ "$CONFIG_SIZE" -gt 100 ]; then
+        echo "✅ Production config created successfully ($CONFIG_SIZE bytes)"
+    else
+        echo "❌ Production config seems too small, check your environment variables"
+        cat configs/production.json
+        exit 1
+    fi
+else
+    echo "❌ Failed to create production config"
+    exit 1
+fi
 
 echo "✅ Setup complete! You can now deploy with:"
 echo "  ./scripts/deploy.sh"
