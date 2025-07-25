@@ -11,7 +11,7 @@ else
 fi
 
 # Validate GitHub App credentials
-if [ -z "$GITHUB_APP_ID" ] || [ -z "$GITHUB_PRIVATE_KEY" ] || [ -z "$WEBHOOK_SECRET" ]; then
+if [ -z "$GITHUB_APP_ID" ] || [ -z "$GITHUB_PRIVATE_KEY" ] || [ -z "$GITHUB_WEBHOOK_SECRET" ]; then
     echo "❌ Error: Missing required GitHub App environment variables"
     echo "Please run ./scripts/setup.sh first"
     exit 1
@@ -25,7 +25,7 @@ echo "  Webhook Secret: configured"
 echo "🛑 Stopping existing services..."
 docker-compose down 2>/dev/null || true
 
-# Smart image building (keeping your optimization)
+# Smart image building
 echo "🏗️  Checking if image rebuild is needed..."
 IMAGE_EXISTS=$(docker images -q staticman-deployment-staticman 2>/dev/null)
 DOCKERFILE_CHANGED=false
