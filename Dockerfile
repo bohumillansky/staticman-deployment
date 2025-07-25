@@ -15,10 +15,6 @@ RUN npm install --production
 # Create config directory
 RUN mkdir -p config
 
-# Copy entrypoint script
-COPY configs/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=8080
@@ -40,6 +36,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD wget --quiet --tries=1 --spider http://localhost:8080/ || exit 1
 
-# Use custom entrypoint
-ENTRYPOINT ["/entrypoint.sh"]
+# Start the application
 CMD ["npm", "start"]

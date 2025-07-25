@@ -10,66 +10,91 @@ else
     exit 1
 fi
 
-STACK_NAME=${STACK_NAME:-staticman}
-TIMESTAMP=$(date +%s)
-
-echo "🔐 Creating/updating Docker secrets..."
-# Remove old secrets if they exist and create new ones
-docker secret rm github_token 2>/dev/null || true
-docker secret rm rsa_private_key 2>/dev/null || true
-
-echo "$GITHUB_TOKEN" | docker secret create github_token -
-echo "$RSA_PRIVATE_KEY" | docker secret create rsa_private_key -
-
-echo "✅ Secrets created"
-
-# Remove existing stack
-if docker stack ls --format "table {{.Name}}" | grep -q "^${STACK_NAME}$"; then
-    echo "🛑 Removing existing stack..."
-    docker stack rm $STACK_NAME
-    sleep 15
+# Validate required environment variables
+if [ -z "$GITHUB_TOKEN" ] || [ -z "$RSA_PRIVATE_KEY" ]; then
+    echo "❌ Error: Missing required environment variables"
+    echo "GITHUB_TOKEN length: ${#GITHUB_TOKEN}"
+    echo "RSA_PRIVATE_KEY length: ${#RSA_PRIVATE_KEY}"
+    echo "Please check your .env file"
+    exit 1
 fi
 
+echo "🔍 Environment check:"
+echo "  GITHUB_TOKEN: ${GITHUB_TOKEN:0:10}... (${#GITHUB_TOKEN} chars)"
+echo "  RSA_PRIVATE_KEY: ${RSA_PRIVATE_KEY:0:20}... (${#RSA_PRIVATE_KEY} chars)"
+
+echo "🛑 Stopping existing services..."
+docker-compose down 2>/dev/null || true
+
 echo "🏗️  Building Staticman image..."
-docker build -t staticman:latest .
+docker-compose build --no-cache staticman
 
-echo "⚙️  Creating nginx config..."
-CONFIG_NAME="nginx_config_$TIMESTAMP"
-docker config create $CONFIG_NAME configs/nginx.conf
-
-echo "📝 Preparing deployment configuration..."
-sed "s/nginx_config/$CONFIG_NAME/g" docker-compose.swarm.yml > docker-compose.swarm.tmp.yml
-
-echo "🚀 Deploying Staticman stack with secrets: $STACK_NAME"
-docker stack deploy -c docker-compose.swarm.tmp.yml $STACK_NAME
-
-rm docker-compose.swarm.tmp.yml
+echo "🚀 Starting services..."
+docker-compose up -d
 
 echo "⏳ Waiting for services to start..."
-sleep 20
+sleep 10
 
-# Monitor deployment
+# Monitor startup
 for i in {1..12}; do
-    echo "🔍 Checking deployment status ($i/12)..."
-    docker stack services $STACK_NAME
+    echo "🔍 Checking service status ($i/12)..."
     
-    STATICMAN_RUNNING=$(docker service ls --filter name=${STACK_NAME}_staticman --format "table {{.Replicas}}" | grep -v REPLICAS | grep -c "1/1" || echo "0")
+    # Check container status
+    STATICMAN_STATUS=$(docker-compose ps --services --filter "status=running" | grep staticman || echo "")
+    NGINX_STATUS=$(docker-compose ps --services --filter "status=running" | grep nginx || echo "")
     
-    if [ "$STATICMAN_RUNNING" = "1" ]; then
-        echo "✅ Staticman service is running!"
+    if [ -n "$STATICMAN_STATUS" ] && [ -n "$NGINX_STATUS" ]; then
+        echo "✅ All services are running!"
         break
     else
-        echo "⏳ Staticman still starting... checking logs:"
-        docker service logs ${STACK_NAME}_staticman --tail 3
+        echo "⏳ Services still starting..."
+        docker-compose ps
+        echo "Staticman logs:"
+        docker-compose logs --tail 3 staticman
     fi
     
-    sleep 10
+    if [ $i -eq 12 ]; then
+        echo "⚠️  Services taking longer than expected to start"
+        echo "Check logs with: docker-compose logs staticman"
+    fi
+    
+    sleep 5
 done
 
 echo ""
 echo "📊 Final status:"
-docker stack services $STACK_NAME
+docker-compose ps
 
-# Clean up old configs
-echo "🧹 Cleaning up old configs..."
-docker config ls --format "table {{.Name}}" | grep "nginx_config_" | sort | head -n -3 | xargs -r docker config rm 2>/dev/null || true
+# Test connectivity
+echo ""
+echo "🌐 Testing connectivity..."
+EXTERNAL_IP=$(curl -s ifconfig.me 2>/dev/null || echo "Unable to determine external IP")
+if [ "$EXTERNAL_IP" != "Unable to determine external IP" ]; then
+    echo "🔗 Staticman API endpoint: http://$EXTERNAL_IP/v3/"
+    
+    # Quick health check
+    if curl -s --max-time 5 "http://localhost/health" >/dev/null 2>&1; then
+        echo "✅ Health check passed!"
+    else
+        echo "⚠️  Health check failed - service may still be starting"
+    fi
+fi
+
+echo ""
+echo "🎉 Deployment complete!"
+echo ""
+echo "📊 Monitor services:"
+echo "  docker-compose ps"
+echo "  docker-compose logs -f staticman"
+echo "  docker-compose logs -f nginx"
+echo ""
+echo "🔧 Manage services:"
+echo "  docker-compose restart staticman  # Restart service"
+echo "  docker-compose down              # Stop all services"
+echo "  docker-compose up -d             # Start all services"
+
+# Clean up old images
+echo ""
+echo "🧹 Cleaning up old images..."
+docker image prune -f
+echo "✅ Cleanup complete"
