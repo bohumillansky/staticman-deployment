@@ -2,7 +2,8 @@ version: '3.8'
 
 services:
   staticman:
-    image: vincenttam/staticman:latest
+    build: .  # Build from local Dockerfile
+    # OR use: image: staticman:local  # if you pre-build the image
     environment:
       - NODE_ENV=production
       - PORT=8080
@@ -29,21 +30,17 @@ services:
         monitor: 60s
       resources:
         limits:
-          cpus: '0.5'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
+          cpus: '0.3'
           memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
 
   nginx:
     image: nginx:alpine
     ports:
       - target: 80
         published: 80
-        protocol: tcp
-        mode: ingress
-      - target: 443
-        published: 443
         protocol: tcp
         mode: ingress
     configs:
