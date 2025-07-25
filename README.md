@@ -344,69 +344,48 @@ docker stack rm staticman
 docker config rm nginx_config
 ```
 
-## SSL Setup (Optional)
+## GitHub App Setup
 
-For production use with a domain name, you can enable HTTPS with Let's Encrypt certificates.
+Staticman uses a GitHub App for authentication, which provides better security and permissions than personal access tokens.
 
-### Prerequisites for SSL
+### Create GitHub App
 
-1. **Domain name**: You need a domain pointing to your GCP instance IP
-2. **DNS configuration**: Ensure your domain's A record points to your instance's external IP
+1. Go to GitHub Settings → Developer settings → GitHub Apps → New GitHub App
+2. Configure:
+   - **Name**: `Staticman-[your-site]` (must be unique)
+   - **Homepage URL**: `https://staticman.net/`
+   - **Webhook URL**: `http://YOUR_SERVER_IP/v1/webhook`
+   - **Webhook secret**: Generate a random string
+3. **Permissions** (Repository permissions):
+   - **Contents**: Read & Write
+   - **Pull requests**: Read & Write  
+   - **Metadata**: Read
+4. **Subscribe to events**: Pull request
+5. **Install on**: Only on this account
 
-### SSL Setup Steps
+### Install GitHub App
 
-1. **Update your .env file**:
+1. After creating the app, click "Install App"
+2. Choose "Only select repositories"
+3. Select your Hugo site repository
+4. Complete installation
+
+### Configure Deployment
+
+1. **Update .env file**:
    ```env
-   DOMAIN=your-domain.com
-   EMAIL=your-email@example.com
+   GITHUB_APP_ID=your_app_id
+   GITHUB_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----
+   your_private_key_content
+   -----END RSA PRIVATE KEY-----"
+   WEBHOOK_SECRET=your_webhook_secret
    ```
 
-2. **Run SSL setup**:
+2. **Deploy**:
    ```bash
-   ./scripts/setup-ssl.sh
+   ./scripts/setup.sh
+   ./scripts/deploy.sh
    ```
-
-3. **Deploy with SSL**:
-   ```bash
-   docker stack deploy -c docker-compose.ssl.yml staticman
-   ```
-
-4. **Obtain SSL certificate**:
-   ```bash
-   # Scale up certbot to obtain certificate
-   docker service scale staticman_certbot=1
-   
-   # Check certbot logs
-   docker service logs staticman_certbot
-   
-   # Scale down certbot after certificate is obtained
-   docker service scale staticman_certbot=0
-   ```
-
-### SSL Certificate Renewal
-
-Set up automatic renewal with a cron job:
-
-```bash
-# Edit crontab
-crontab -e
-
-# Add this line for automatic renewal (runs daily at 2 AM)
-0 2 * * * docker service scale staticman_certbot=1 && sleep 30 && docker service scale staticman_certbot=0
-```
-
-## Configuration Files
-
-- `configs/production.json.template` - Template for Staticman configuration
-- `configs/production.json` - Generated configuration (not in git, created by setup.sh)
-
-## Deployment Process
-
-1. Generate RSA keys: `./scripts/generate-keys.sh`
-2. Add public key to your Hugo site repository as Deploy Key
-3. Configure environment: `cp .env.example .env` and edit
-4. Setup: `./scripts/setup.sh`
-5. Deploy: `./scripts/deploy.sh`
 
 ## Contributing
 

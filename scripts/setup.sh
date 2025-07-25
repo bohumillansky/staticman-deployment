@@ -16,27 +16,39 @@ fi
 source .env
 
 # Validate required environment variables
-if [ -z "$GITHUB_TOKEN" ] || [ -z "$RSA_PRIVATE_KEY" ]; then
-    echo "❌ Error: Missing required environment variables"
-    echo "GITHUB_TOKEN length: ${#GITHUB_TOKEN}"
-    echo "RSA_PRIVATE_KEY length: ${#RSA_PRIVATE_KEY}"
-    echo "Please check your .env file"
+if [ -z "$GITHUB_APP_ID" ] || [ -z "$GITHUB_PRIVATE_KEY" ] || [ -z "$WEBHOOK_SECRET" ]; then
+    echo "❌ Error: Missing required GitHub App environment variables"
+    echo "GITHUB_APP_ID: ${GITHUB_APP_ID:-'not set'}"
+    echo "GITHUB_PRIVATE_KEY length: ${#GITHUB_PRIVATE_KEY}"
+    echo "WEBHOOK_SECRET: ${WEBHOOK_SECRET:+set}"
+    echo ""
+    echo "Please configure your .env file with GitHub App credentials:"
+    echo "1. GITHUB_APP_ID - from your GitHub App settings"
+    echo "2. GITHUB_PRIVATE_KEY - content of your downloaded .pem file"
+    echo "3. WEBHOOK_SECRET - secret you set when creating the app"
     exit 1
 fi
 
-echo "✅ Environment variables loaded:"
-echo "  GITHUB_TOKEN: ${GITHUB_TOKEN:0:10}... (${#GITHUB_TOKEN} chars)"
-echo "  RSA_PRIVATE_KEY: ${RSA_PRIVATE_KEY:0:20}... (${#RSA_PRIVATE_KEY} chars)"
+echo "✅ GitHub App credentials loaded:"
+echo "  App ID: $GITHUB_APP_ID"
+echo "  Private Key: ${GITHUB_PRIVATE_KEY:0:30}... (${#GITHUB_PRIVATE_KEY} chars)"
+echo "  Webhook Secret: configured"
 
 # Create Staticman production config
 echo "📝 Creating Staticman production config..."
 
-# Use cat with heredoc instead of envsubst (more reliable)
+if [ ! -f configs/production.json.template ]; then
+    echo "❌ Error: configs/production.json.template not found"
+    exit 1
+fi
+
+# Create config from template
 cat > configs/production.json << EOF
 {
-  "githubToken": "${GITHUB_TOKEN}",
-  "rsaPrivateKey": "${RSA_PRIVATE_KEY}",
-  "port": 8080
+  "githubAppID": "${GITHUB_APP_ID}",
+  "githubPrivateKey": "${GITHUB_PRIVATE_KEY}",
+  "port": 8080,
+  "webhookSecret": "${WEBHOOK_SECRET}"
 }
 EOF
 

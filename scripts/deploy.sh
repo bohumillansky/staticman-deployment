@@ -10,26 +10,29 @@ else
     exit 1
 fi
 
-# Validate required environment variables
-if [ -z "$GITHUB_TOKEN" ] || [ -z "$RSA_PRIVATE_KEY" ]; then
-    echo "❌ Error: Missing required environment variables"
-    echo "GITHUB_TOKEN length: ${#GITHUB_TOKEN}"
-    echo "RSA_PRIVATE_KEY length: ${#RSA_PRIVATE_KEY}"
+# Validate GitHub App credentials
+if [ -z "$GITHUB_APP_ID" ] || [ -z "$GITHUB_PRIVATE_KEY" ] || [ -z "$WEBHOOK_SECRET" ]; then
+    echo "❌ Error: Missing required GitHub App environment variables"
     echo "Please run ./scripts/setup.sh first"
     exit 1
 fi
 
-echo "🔍 Environment check:"
-echo "  GITHUB_TOKEN: ${GITHUB_TOKEN:0:10}... (${#GITHUB_TOKEN} chars)"
-echo "  RSA_PRIVATE_KEY: ${RSA_PRIVATE_KEY:0:20}... (${#RSA_PRIVATE_KEY} chars)"
+echo "🔍 GitHub App credentials:"
+echo "  App ID: $GITHUB_APP_ID"
+echo "  Private Key: ${GITHUB_PRIVATE_KEY:0:30}... (${#GITHUB_PRIVATE_KEY} chars)"
+echo "  Webhook Secret: configured"
 
 # Create/update Staticman config
 echo "📝 Creating Staticman production config..."
-if [ ! -f configs/production.json.template ]; then
-    echo "❌ Error: configs/production.json.template not found"
-    exit 1
-fi
-envsubst < configs/production.json.template > configs/production.json
+
+cat > configs/production.json << EOF
+{
+  "githubAppID": "${GITHUB_APP_ID}",
+  "githubPrivateKey": "${GITHUB_PRIVATE_KEY}",
+  "port": 8080,
+  "webhookSecret": "${WEBHOOK_SECRET}"
+}
+EOF
 
 echo "🛑 Stopping existing services..."
 docker-compose down 2>/dev/null || true
@@ -78,8 +81,8 @@ echo ""
 echo "🌐 Testing connectivity..."
 EXTERNAL_IP=$(curl -s ifconfig.me 2>/dev/null || echo "Unable to determine external IP")
 if [ "$EXTERNAL_IP" != "Unable to determine external IP" ]; then
-    echo "🔗 Staticman API endpoint: http://$EXTERNAL_IP/v2/entry/USERNAME/REPO/main/comments"
-    echo "🔗 Connect endpoint: http://$EXTERNAL_IP/v2/connect/USERNAME/REPO"
+    echo "🔗 Staticman API: http://$EXTERNAL_IP/v2/entry/bohumillansky/zivotvusa.cz/main/comments"
+    echo "🔗 Connect endpoint: http://$EXTERNAL_IP/v2/connect/bohumillansky/zivotvusa.cz"
     
     # Quick health check
     if curl -s --max-time 5 "http://localhost/health" >/dev/null 2>&1; then

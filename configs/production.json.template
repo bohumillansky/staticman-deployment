@@ -1,5 +1,6 @@
 {
-  "githubToken": "${GITHUB_TOKEN}",
-  "rsaPrivateKey": "${RSA_PRIVATE_KEY}",
-  "port": 8080
+  "githubAppID": "${GITHUB_APP_ID}",
+  "githubPrivateKey": "${GITHUB_PRIVATE_KEY}",
+  "port": 8080,
+  "webhookSecret": "${WEBHOOK_SECRET}"
 }
